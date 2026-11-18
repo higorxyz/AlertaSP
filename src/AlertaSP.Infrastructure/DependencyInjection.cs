@@ -19,8 +19,8 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlite(connectionString));
 
-        // Chaves do Data Protection ficam no perfil do usuário (padrão do ASP.NET Core). Em produção
-        // deveriam ir para um cofre de chaves; ver docs/security.md.
+        // Chaves do Data Protection ficam no perfil do usuário, cifradas com DPAPI no Windows (padrão do
+        // ASP.NET Core). Em produção deveriam ir para um cofre de chaves; ver docs/security.md.
         services.AddDataProtection()
             .SetApplicationName("AlertaSP");
 

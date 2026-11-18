@@ -44,3 +44,6 @@ logs/
 
 
 entrega/
+
+## Resultados de testes da CI
+TestResults/

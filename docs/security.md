@@ -37,7 +37,7 @@ Quando duas regras casam trechos que se sobrepõem (`api_key=sk-...`), os trecho
 - CPF, e-mail e endereço do cidadão são gravados cifrados com a API de Data Protection do ASP.NET Core (`DataProtectionCryptoService`). Não há criptografia própria.
 - Origem, destino e coordenadas dos trajetos também são gravados cifrados (`RouteLocationProtector`). Liberar o dado para o destino `Database` não basta: o serviço cifra antes de gravar. A localização só é decifrada em memória, para a resposta pública generalizada e para os usos internos autorizados (risco do trajeto e geração de alertas). Um teste de integração lê os bytes do arquivo SQLite e confirma que nenhum CPF, e-mail, endereço ou coordenada aparece em claro.
 - A duplicidade de CPF é verificada por um HMAC-SHA256 do CPF normalizado, guardado numa coluna com índice único. Não é preciso decifrar os cadastros para comparar, e uma corrida entre dois cadastros iguais termina em 409, não em erro 500.
-- A chave do HMAC (`Security:HmacSecret`) vem de configuração. As chaves do Data Protection ficam no perfil do usuário; em produção deveriam ficar num cofre de chaves.
+- A chave do HMAC (`Security:HmacSecret`) vem de configuração. As chaves do Data Protection ficam no perfil do usuário do Windows, cifradas com DPAPI, fora do banco: copiar o arquivo SQLite não basta para ler os dados. Elas persistem entre reinícios, e um teste de integração reinicia a API sobre o mesmo banco e confirma que cadastros e trajetos continuam legíveis. Em produção, com vários servidores, deveriam ficar num cofre de chaves compartilhado.
 
 ## Tradução de incidentes por IA
 

@@ -22,6 +22,7 @@ namespace AlertaSP.UnitTests.Integration;
 
 public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>, IDisposable
 {
+    private readonly WebApplicationFactory<Program> _baseFactory;
     private readonly WebApplicationFactory<Program> _factory;
     private readonly string _dbFileName;
     private const string ApiKey = "integration-test-api-key";
@@ -35,9 +36,17 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
     public ApiIntegrationTests(WebApplicationFactory<Program> factory)
     {
         _dbFileName = $"test_integration_{Guid.NewGuid():N}.db";
+        _baseFactory = factory;
+        _factory = CreateHost();
+    }
 
-        // Cada teste usa o próprio arquivo SQLite, apagado no Dispose.
-        _factory = factory.WithWebHostBuilder(builder =>
+    /// <summary>
+    /// Uma instância da API apontando para o arquivo SQLite deste teste. Criar uma segunda instância sobre o
+    /// mesmo arquivo simula a API sendo reiniciada.
+    /// </summary>
+    private WebApplicationFactory<Program> CreateHost()
+    {
+        return _baseFactory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("Security:ApiKey", ApiKey);
             builder.UseSetting("Security:HmacSecret", "integration-test-hmac-secret");
@@ -399,6 +408,39 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
         await CreateOccurrenceAsync(client, -23.5891, -46.6342);
         var risk = (await client.GetFromJsonAsync<RouteRiskAnalysisResponse>($"/api/routes/{route.Id}/risk", Json))!;
         Assert.Equal(0, Assert.Single(risk.NearbyOccurrences).DistanceMeters);
+    }
+
+    // Os dados cifrados precisam continuar legíveis quando a API reinicia: as chaves do Data Protection
+    // ficam persistidas fora do processo. Sem isso, cadastros e trajetos virariam lixo a cada reinício.
+    [Fact]
+    public async Task EncryptedData_IsReadableAfterRestart_AndRouteDeletionRemovesItsAlerts()
+    {
+        var firstRun = _factory.CreateClient();
+        var citizen = await RegisterCitizenAsync(firstRun);
+        var route = await CreateRouteAsync(firstRun, citizen.Id);
+        await CreateOccurrenceAsync(firstRun, -23.5600, -46.6500);
+        var generated = (await (await firstRun.PostAsync("/api/alerts/generate", null)).Content.ReadFromJsonAsync<GenerateAlertsResult>(Json))!;
+        Assert.Equal(1, generated.AlertsGenerated);
+        await _factory.DisposeAsync();
+        SqliteConnection.ClearAllPools();
+
+        await using var restarted = CreateHost();
+        var client = restarted.CreateClient();
+
+        var reloadedCitizen = (await client.GetFromJsonAsync<CitizenResponse>($"/api/citizens/{citizen.Id}", Json))!;
+        Assert.Equal("***.***.***-25", reloadedCitizen.MaskedCpf);
+        var reloadedRoute = (await client.GetFromJsonAsync<RouteResponse>($"/api/routes/{route.Id}", Json))!;
+        Assert.Equal(route.OriginLatitude, reloadedRoute.OriginLatitude);
+        var risk = (await client.GetFromJsonAsync<RouteRiskAnalysisResponse>($"/api/routes/{route.Id}/risk", Json))!;
+        Assert.Single(risk.NearbyOccurrences);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/routes/{route.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/routes/{route.Id}")).StatusCode);
+
+        using var scope = restarted.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(0, await db.Routes.CountAsync());
+        Assert.Equal(0, await db.Alerts.CountAsync());
     }
 
     /// <summary>

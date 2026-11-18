@@ -1,5 +1,7 @@
 # AlertaSP
 
+[![CI](https://github.com/higorxyz/AlertaSP/actions/workflows/ci.yml/badge.svg)](https://github.com/higorxyz/AlertaSP/actions/workflows/ci.yml)
+
 Alertas de alagamento para o trajeto que cada pessoa faz todos os dias, com proteção dos dados pessoais que esse serviço precisa guardar.
 
 **FIAP · Global Solution 2026.2 · Engenharia de Software (3º ano)**
@@ -171,7 +173,7 @@ O modelo de ameaças está em [docs/threat-model.md](docs/threat-model.md).
 | **Web API** | Controllers finos em [Controllers/](src/AlertaSP.Api/Controllers/): DTOs, validação por atributos, paginação, `ProblemDetails` em todos os erros ([GlobalExceptionHandler.cs](src/AlertaSP.Api/Middleware/GlobalExceptionHandler.cs)), códigos 200/201/204/400/401/404/409, Swagger com descrição de cada endpoint. |
 | **EF Core + LINQ** | [ApplicationDbContext.cs](src/AlertaSP.Infrastructure/Data/ApplicationDbContext.cs), uma configuração por entidade em [Configurations/](src/AlertaSP.Infrastructure/Data/Configurations/), índices únicos (hash do CPF; par trajeto/ocorrência), migração em [Migrations/](src/AlertaSP.Infrastructure/Migrations/). Consultas traduzidas para SQL: caixa delimitadora em [FloodOccurrenceRepository.cs](src/AlertaSP.Infrastructure/Repositories/FloodOccurrenceRepository.cs), agrupamentos por categoria e por dia em [SecurityIncidentRepository.cs](src/AlertaSP.Infrastructure/Repositories/SecurityIncidentRepository.cs), contagem por decisão em [AuditEventRepository.cs](src/AlertaSP.Infrastructure/Repositories/AuditEventRepository.cs). |
 | **Async/Await** | E/S assíncrona de ponta a ponta (EF Core, HTTP do LLM), com `CancellationToken` repassado do controller ao repositório. Sem `.Result` nem `.Wait()`. |
-| **Testes** | 248 testes xUnit: unitários (entidades, serviços, geometria, busca de proximidade, migração, cifragem, logs, PII, Taint, IA, risco) e de integração com `WebApplicationFactory` e um banco SQLite por teste ([ApiIntegrationTests.cs](tests/AlertaSP.UnitTests/Integration/ApiIntegrationTests.cs)). |
+| **Testes** | 249 testes xUnit: unitários (entidades, serviços, geometria, busca de proximidade, migração, cifragem, logs, PII, Taint, IA, risco) e de integração com `WebApplicationFactory` e um banco SQLite por teste ([ApiIntegrationTests.cs](tests/AlertaSP.UnitTests/Integration/ApiIntegrationTests.cs)). A cada push, o GitHub Actions compila e roda todos os testes ([ci.yml](.github/workflows/ci.yml)). |
 
 ### Cybersecurity
 
@@ -209,7 +211,7 @@ Dependências: Core não depende de nenhum projeto; Application e Security depen
 - **Ausência de ocorrência não é segurança.** Sem registros perto do trajeto, a API diz que não há ocorrência registrada, nunca que o caminho é seguro.
 - **Sem login de usuário.** O protótipo não tem autenticação de cidadãos; só os endpoints de segurança exigem chave. As listagens públicas devolvem apenas dados mascarados.
 - **Nome do cidadão não é mascarado.** É o dado que a pessoa usa para reconhecer o próprio cadastro; CPF, e-mail e endereço são protegidos.
-- **Chaves de cifragem locais.** As chaves do Data Protection ficam no perfil do usuário do Windows. Em produção iriam para um cofre de chaves.
+- **Chaves de cifragem locais.** As chaves do Data Protection ficam no perfil do usuário do Windows, cifradas com DPAPI (padrão do ASP.NET Core), e sobrevivem ao reinício da API (há teste para isso). Quem copiar só o arquivo do banco não consegue ler os dados. Em produção, com vários servidores, as chaves iriam para um cofre de chaves compartilhado.
 - **Trajetos gravados antes da cifragem.** A migração `EncryptRouteLocation` remove os trajetos (e seus alertas) gravados em texto claro por versões anteriores, porque não há como cifrá-los por SQL.
 - **Detecção de saúde por texto** reduz falsos positivos exigindo combinação de termos, mas não garante encontrar todo dado médico.
 - **Dados meteorológicos** ficam como evolução futura.
