@@ -3,7 +3,7 @@
 Alertas de alagamento para o trajeto que cada pessoa faz todos os dias, com proteção dos dados pessoais que esse serviço precisa guardar.
 
 **FIAP · Global Solution 2026.2 · Engenharia de Software (3º ano)**
-Este repositório contém as entregas de **C# Software Development** e **Cybersecurity**.
+Este repositório contém as entregas das matérias de **C# Software Development** e **Cybersecurity**.
 Stack: .NET 9, ASP.NET Core, Entity Framework Core 9, SQLite, xUnit.
 
 ## Ficha da CitizenTech
