@@ -8,8 +8,8 @@ namespace AlertaSP.Api.Logging;
 /// Defesa em profundidade do Serilog: qualquer evento de log (inclusive dos componentes do framework e
 /// de código que não usa o <c>ISecureLogger</c>) tem o texto e as propriedades mascarados pelo motor PII
 /// antes de chegar ao sink real. O texto do modelo é mascarado só nos trechos literais, preservando os
-/// marcadores <c>{Nome}</c>.
-/// Limitação: a mensagem de uma exceção anexada ao evento não é reescrita.
+/// marcadores <c>{Nome}</c>. Uma exceção anexada ao evento é trocada por uma cópia com mensagem e stack
+/// trace mascarados, porque mensagens de exceção às vezes carregam o valor que causou o erro.
 /// </summary>
 public sealed class PiiMaskingSink : ILogEventSink
 {
@@ -35,7 +35,7 @@ public sealed class PiiMaskingSink : ILogEventSink
         var masked = new LogEvent(
             logEvent.Timestamp,
             logEvent.Level,
-            logEvent.Exception,
+            logEvent.Exception is null ? null : new MaskedException(logEvent.Exception, _mask),
             _parser.Parse(templateText),
             properties);
 
@@ -53,4 +53,25 @@ public sealed class PiiMaskingSink : ILogEventSink
             dictionary.Elements.Select(e => new KeyValuePair<ScalarValue, LogEventPropertyValue>(e.Key, MaskValue(e.Value)))),
         _ => value
     };
+}
+
+/// <summary>
+/// Cópia de uma exceção com o texto já mascarado. O sink de console imprime <see cref="ToString"/>, que aqui
+/// devolve o tipo, a mensagem e o stack trace originais depois de passarem pelo motor de PII.
+/// </summary>
+public sealed class MaskedException : Exception
+{
+    private readonly string _text;
+    private readonly string? _stackTrace;
+
+    public MaskedException(Exception original, Func<string, string> mask)
+        : base(mask(original.Message))
+    {
+        _text = mask(original.ToString());
+        _stackTrace = original.StackTrace is null ? null : mask(original.StackTrace);
+    }
+
+    public override string? StackTrace => _stackTrace;
+
+    public override string ToString() => _text;
 }

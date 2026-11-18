@@ -7,8 +7,9 @@ namespace AlertaSP.UnitTests.Core;
 
 public class EntityTests
 {
-    private static Route NewRoute() =>
-        Route.Create(1, "Casa -> Trabalho", "Liberdade", "Consolação", -23.565, -46.640, -23.555, -46.660);
+    private static EncryptedRouteLocation EncryptedLocation() => new("enc_origem", "enc_destino", "enc_coordenadas");
+
+    private static Route NewRoute() => Route.Create(1, "Casa -> Trabalho", EncryptedLocation());
 
     private static FloodOccurrence NewOccurrence(Severity severity = Severity.Alto) =>
         FloodOccurrence.Create("Rua da Consolação", -23.560, -46.650, "Via alagada", severity);
@@ -32,13 +33,14 @@ public class EntityTests
         Assert.Throws<DomainException>(() => Citizen.Create(name, "enc_cpf", cpfHash, "enc_email", "enc_addr"));
     }
 
-    [Theory]
-    [InlineData(95.0, 0.0)]
-    [InlineData(0.0, -185.0)]
-    [InlineData(double.NaN, 0.0)]
-    public void Route_Create_InvalidCoordinates_AreRejected(double lat, double lon)
+    [Fact]
+    public void Route_KeepsOnlyEncryptedLocation()
     {
-        Assert.Throws<DomainException>(() => Route.Create(1, "Rota", "Origem", "Destino", lat, lon, 0, 0));
+        var route = NewRoute();
+
+        Assert.Equal("enc_origem", route.EncryptedOrigin);
+        Assert.Equal("enc_destino", route.EncryptedDestination);
+        Assert.Equal("enc_coordenadas", route.EncryptedCoordinates);
     }
 
     [Fact]
@@ -46,8 +48,9 @@ public class EntityTests
     {
         var route = NewRoute();
 
-        Assert.Throws<DomainException>(() => route.Update(" ", "A", "B", 0, 0, 0, 0));
-        Assert.Throws<DomainException>(() => route.Update("Nome", "", "B", 0, 0, 0, 0));
+        Assert.Throws<DomainException>(() => route.Update(" ", EncryptedLocation()));
+        Assert.Throws<DomainException>(() => new EncryptedRouteLocation("enc", "", "enc"));
+        Assert.Throws<DomainException>(() => Route.Create(0, "Rota", EncryptedLocation()));
         Assert.Equal("Casa -> Trabalho", route.Name);
     }
 

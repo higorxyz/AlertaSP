@@ -19,9 +19,9 @@ Ameaças organizadas pelas categorias STRIDE, com o controle que existe no códi
 | STRIDE | Ameaça | Controle | Risco residual |
 |---|---|---|---|
 | Divulgação | CPF ou endereço em resposta da API | Taint Analysis com destino `PublicHttpResponse`: CPF e e-mail mascarados, endereço omitido, coordenadas arredondadas. | Nenhum conhecido. |
-| Divulgação | CPF, senha ou dado de saúde em log | `ISecureLogger` passa cada valor pelo rastreador; o Serilog filtra todo evento pelo motor de PII. | Mensagens de exceção anexadas ao log não são filtradas. |
+| Divulgação | CPF, senha ou dado de saúde em log | `ISecureLogger` passa cada valor pelo rastreador; o Serilog filtra todo evento pelo motor de PII, inclusive mensagens e stack traces de exceção. | Nenhum conhecido. |
 | Divulgação | Dado pessoal no prompt enviado ao LLM | Prompt só com descritores; passa pelo rastreador com destino `ExternalAiService`; qualquer detecção cancela o envio. | Nenhum conhecido. |
-| Divulgação | Banco copiado ou exposto | CPF, e-mail e endereço cifrados com Data Protection; CPF comparado por HMAC. | Chaves do Data Protection no perfil do usuário da máquina. |
+| Divulgação | Banco copiado ou exposto | CPF, e-mail e endereço do cidadão, e origem, destino e coordenadas dos trajetos, cifrados com Data Protection; CPF comparado por HMAC; teste que lê o arquivo SQLite confirma que nada disso aparece em claro. | Chaves do Data Protection no perfil do usuário da máquina. |
 | Divulgação | Segredos no código ou no painel | Nenhuma chave versionada; a API não sobe sem `ApiKey` e `HmacSecret`; o painel pede a chave a cada uso e não a guarda. | Depende do cuidado de quem configura a máquina. |
 | Divulgação | Enumeração de cidadãos e trajetos | As listagens só devolvem dados mascarados e generalizados. | Sem autenticação de usuários, qualquer pessoa vê nomes e trajetos generalizados. |
 | Adulteração | Injeção de SQL | Somente LINQ parametrizado pelo EF Core; nenhuma concatenação de SQL. | Nenhum conhecido. |

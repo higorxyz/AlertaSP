@@ -15,8 +15,11 @@ public class RouteConfiguration : IEntityTypeConfiguration<Route>
             .IsRequired()
             .HasMaxLength(200);
 
-        builder.Property(r => r.Origin).HasMaxLength(500);
-        builder.Property(r => r.Destination).HasMaxLength(500);
+        // Cifrados com Data Protection antes de chegar à entidade (ver RouteLocationProtector).
+        builder.Property(r => r.EncryptedOrigin).IsRequired();
+        builder.Property(r => r.EncryptedDestination).IsRequired();
+        builder.Property(r => r.EncryptedCoordinates).IsRequired();
+        builder.Ignore(r => r.Location);
 
         builder.HasOne(r => r.Citizen)
             .WithMany()

@@ -12,4 +12,4 @@ Compilação com êxito.
     0 Aviso(s)
     0 Erro(s)
 
-Tempo Decorrido 00:00:03.88
+Tempo Decorrido 00:00:05.04

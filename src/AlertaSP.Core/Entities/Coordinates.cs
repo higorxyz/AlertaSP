@@ -2,7 +2,7 @@ using AlertaSP.Core.Exceptions;
 
 namespace AlertaSP.Core.Entities;
 
-internal static class Coordinates
+public static class Coordinates
 {
     public static void EnsureValid(double latitude, double longitude, string label)
     {

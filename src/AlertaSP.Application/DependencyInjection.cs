@@ -17,6 +17,7 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddScoped<INearbyOccurrenceFinder, NearbyOccurrenceFinder>();
+        services.AddSingleton<RouteLocationProtector>();
         services.AddScoped<ICitizenService, CitizenService>();
         services.AddScoped<IRouteService, RouteService>();
         services.AddScoped<IFloodOccurrenceService, FloodOccurrenceService>();

@@ -17,6 +17,7 @@ public class AlertServiceTests : IDisposable
     private readonly SqliteTestDatabase _db = new();
     private readonly FakeAuditSink _audit = new();
     private readonly FakeIncidentRepository _incidents = new();
+    private readonly RouteLocationProtector _protector = new(new FakeCryptoService());
     private readonly AlertService _service;
     private readonly int _citizenId;
 
@@ -29,7 +30,8 @@ public class AlertServiceTests : IDisposable
             new AlertRepository(_db.Context),
             new RouteRepository(_db.Context),
             finder,
-            TestSecurity.CreateTracker(_audit, _incidents));
+            TestSecurity.CreateTracker(_audit, _incidents),
+            _protector);
 
         var citizen = Citizen.Create("Cidadã Teste", "enc_cpf", "hash_cpf", "enc_email", "enc_address");
         _db.Context.Citizens.Add(citizen);
@@ -41,7 +43,8 @@ public class AlertServiceTests : IDisposable
 
     private Route AddRoute(string name = "Casa -> Trabalho", bool monitored = true)
     {
-        var route = Route.Create(_citizenId, name, "Liberdade", "Consolação", OriginLat, OriginLon, DestLat, DestLon);
+        var location = RouteLocation.Create("Liberdade", "Consolação", OriginLat, OriginLon, DestLat, DestLon);
+        var route = Route.Create(_citizenId, name, _protector.Protect(location));
         if (!monitored)
             route.DeactivateMonitoring();
 

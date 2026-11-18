@@ -1,5 +1,6 @@
 using AlertaSP.Core.Entities;
 using AlertaSP.Core.Enums;
+using AlertaSP.Core.Interfaces;
 using AlertaSP.Core.Interfaces.Security;
 using AlertaSP.Security.Pii;
 using AlertaSP.Security.Pii.Rules;
@@ -97,4 +98,12 @@ public static class TestSecurity
 
         return new TaintTracker(new SecurityPolicy(), audit, incidents, new PiiMaskingService(detector), detector);
     }
+}
+
+/// <summary>Cifragem reversível e visível ("ENC_..."), para os testes conferirem o que foi gravado.</summary>
+public sealed class FakeCryptoService : ICryptoService
+{
+    public string Encrypt(string plainText) => $"ENC_{plainText}";
+    public string Decrypt(string cipherText) => cipherText.StartsWith("ENC_") ? cipherText[4..] : cipherText;
+    public string HashCpf(string normalizedCpf) => $"HASH_{normalizedCpf}";
 }

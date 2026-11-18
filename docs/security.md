@@ -34,7 +34,8 @@ Quando duas regras casam trechos que se sobrepõem (`api_key=sk-...`), os trecho
 
 ## Proteção em repouso
 
-- CPF, e-mail e endereço são gravados cifrados com a API de Data Protection do ASP.NET Core (`DataProtectionCryptoService`). Não há criptografia própria.
+- CPF, e-mail e endereço do cidadão são gravados cifrados com a API de Data Protection do ASP.NET Core (`DataProtectionCryptoService`). Não há criptografia própria.
+- Origem, destino e coordenadas dos trajetos também são gravados cifrados (`RouteLocationProtector`). Liberar o dado para o destino `Database` não basta: o serviço cifra antes de gravar. A localização só é decifrada em memória, para a resposta pública generalizada e para os usos internos autorizados (risco do trajeto e geração de alertas). Um teste de integração lê os bytes do arquivo SQLite e confirma que nenhum CPF, e-mail, endereço ou coordenada aparece em claro.
 - A duplicidade de CPF é verificada por um HMAC-SHA256 do CPF normalizado, guardado numa coluna com índice único. Não é preciso decifrar os cadastros para comparar, e uma corrida entre dois cadastros iguais termina em 409, não em erro 500.
 - A chave do HMAC (`Security:HmacSecret`) vem de configuração. As chaves do Data Protection ficam no perfil do usuário; em produção deveriam ficar num cofre de chaves.
 
@@ -82,7 +83,7 @@ As contagens do painel saem de consultas agrupadas no banco (por categoria, sens
 - **Erros** sempre em `application/problem+json`, sem stack trace; o `traceId` é o mesmo do cabeçalho `X-Correlation-ID`.
 - **Cabeçalhos** `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` e `Referrer-Policy: no-referrer` em todas as respostas.
 - **Correlação:** um `X-Correlation-ID` recebido só é aceito com até 64 caracteres seguros; caso contrário, outro é gerado.
-- **Logs:** o código de negócio escreve pelo `ISecureLogger`, que passa cada valor pelo rastreador. Como segunda barreira, todo evento do Serilog passa pelo motor de PII antes de chegar ao console.
+- **Logs:** o código de negócio escreve pelo `ISecureLogger`, que passa cada valor pelo rastreador. Como segunda barreira, todo evento do Serilog passa pelo motor de PII antes de chegar ao console, inclusive a mensagem e o stack trace de exceções anexadas.
 - **Painel:** todo texto vindo da API, inclusive a resposta da IA, é escapado antes de entrar no HTML.
 - **SQL:** só consultas LINQ parametrizadas pelo EF Core.
 - **Validação de entrada** por atributos nos DTOs e nos parâmetros (raio de 1 a 10.000 m, paginação de 1 a 100, severidade e status só com valores conhecidos).

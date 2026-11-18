@@ -59,7 +59,8 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
         // senão o SQLite mantém o arquivo aberto.
         _factory.Dispose();
         SqliteConnection.ClearAllPools();
-        File.Delete(_dbFileName);
+        foreach (var suffix in new[] { "", "-wal", "-shm" })
+            File.Delete(_dbFileName + suffix);
     }
 
     [Fact]
@@ -286,7 +287,7 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
-    public async Task Route_PublicResponseIsGeneralized_ButTheExactCoordinatesStayInTheDatabase()
+    public async Task Route_PublicResponseIsGeneralized_AndTheExactLocationIsStoredEncrypted()
     {
         var client = _factory.CreateClient();
         var citizen = await RegisterCitizenAsync(client);
@@ -310,11 +311,58 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal("[ENDEREÇO PROTEGIDO]", route.Origin);
         Assert.Equal("[ENDEREÇO PROTEGIDO]", route.Destination);
 
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var stored = await db.Routes.AsNoTracking().SingleAsync();
-        Assert.Equal(-23.5612, stored.OriginLatitude);
-        Assert.Equal("Rua Augusta, 1200", stored.Origin);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var stored = await db.Routes.AsNoTracking().SingleAsync();
+            Assert.DoesNotContain("Augusta", stored.EncryptedOrigin);
+            Assert.DoesNotContain("Paulista", stored.EncryptedDestination);
+            Assert.DoesNotContain("-23.5612", stored.EncryptedCoordinates);
+        }
+
+        // O valor exato continua disponível para o uso interno: a ocorrência sobre o trajeto é encontrada.
+        await client.PostAsJsonAsync("/api/flood-occurrences", new CreateFloodOccurrenceRequest
+        {
+            Location = "Trecho monitorado", Latitude = -23.5612, Longitude = -46.6401,
+            Description = "Ponto de alagamento na origem.", Severity = Severity.Alto
+        });
+        var risk = (await client.GetFromJsonAsync<RouteRiskAnalysisResponse>($"/api/routes/{route.Id}/risk", Json))!;
+        Assert.Equal(0, Assert.Single(risk.NearbyOccurrences).DistanceMeters);
+    }
+
+    // Inspeciona o arquivo SQLite byte a byte: nenhum dado sensível de cidadão ou de trajeto pode
+    // aparecer em texto claro, nem em colunas que o teste não conhece.
+    [Fact]
+    public async Task SqliteFile_ContainsNoPlainTextPersonalOrLocationData()
+    {
+        var client = _factory.CreateClient();
+        var citizen = await RegisterCitizenAsync(client);
+        var routeResponse = await client.PostAsJsonAsync("/api/routes", new CreateRouteRequest
+        {
+            CitizenId = citizen.Id,
+            Name = "Casa -> Trabalho",
+            Origin = "Rua Augusta, 1200",
+            Destination = "Av. Paulista, 1578",
+            OriginLatitude = -23.5612,
+            OriginLongitude = -46.6401,
+            DestinationLatitude = -23.5559,
+            DestinationLongitude = -46.6602
+        });
+        Assert.Equal(HttpStatusCode.Created, routeResponse.StatusCode);
+
+        // O EF Core cria o banco em modo WAL: as gravações recentes ficam no arquivo "-wal" até o checkpoint.
+        var text = new System.Text.StringBuilder();
+        foreach (var path in new[] { _dbFileName, _dbFileName + "-wal" }.Where(File.Exists))
+        {
+            await using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            var raw = new byte[file.Length];
+            await file.ReadExactlyAsync(raw);
+            text.Append(System.Text.Encoding.UTF8.GetString(raw));
+        }
+
+        foreach (var secret in new[] { "52998224725", "529.982.247-25", "higor@fiap.com.br", "Av. Paulista, 1106", "Rua Augusta, 1200", "Av. Paulista, 1578", "-23.5612", "-46.6602" })
+            Assert.DoesNotContain(secret, text.ToString());
+        Assert.Contains("Casa -> Trabalho", text.ToString()); // o nome do trajeto não é sensível e confirma que o arquivo foi lido
     }
 
     // ---------- Ocorrências: conteúdo livre passa pelo taint ----------

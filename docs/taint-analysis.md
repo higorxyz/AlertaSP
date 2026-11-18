@@ -42,7 +42,7 @@ Autorização sem finalidade declarada não libera dado pessoal nem localizaçã
 | Fluxo | O que acontece |
 |---|---|
 | Cadastro e consulta de cidadão ([CitizenService](../src/AlertaSP.Application/Services/CitizenService.cs)) | Campos rotulados → `Database` (liberado e cifrado) → `Log` (CPF mascarado) → `PublicHttpResponse` (mascarado). Entrada, gravação, log e resposta compartilham o mesmo FlowId. |
-| Trajetos ([RouteService](../src/AlertaSP.Application/Services/RouteService.cs)) | Endereços e coordenadas rotulados como localização. A resposta pública omite o endereço e arredonda as coordenadas; o banco guarda o valor exato. |
+| Trajetos ([RouteService](../src/AlertaSP.Application/Services/RouteService.cs)) | Endereços e coordenadas rotulados como localização. Depois de liberados para o destino `Database`, são cifrados antes de gravar. A resposta pública omite o endereço e arredonda as coordenadas. |
 | Consulta de risco do trajeto | As coordenadas exatas são lidas como uso interno autorizado (finalidade `RouteRiskAnalysis`), com decisão auditada. |
 | Geração de alertas ([AlertService](../src/AlertaSP.Application/Services/AlertService.cs)) | Mesmo princípio, finalidade `RouteAlertGeneration`: é o cenário 4 do enunciado acontecendo no fluxo real. |
 | Ocorrências ([FloodOccurrenceService](../src/AlertaSP.Application/Services/FloodOccurrenceService.cs)) | Local e descrição são públicos e vão ao destino `PublicHttpResponse` antes de gravar: credencial ou saúde fazem o cadastro ser recusado com 400 e geram incidente; CPF, e-mail e endereço são gravados mascarados. |
@@ -66,5 +66,4 @@ A resposta mostra, para cada cenário, destino, categoria, decisão e o valor qu
 
 - A herança por concatenação depende de o código usar `Combine`/`Concat`. Concatenar o valor bruto por fora do rastreador quebra o rastro.
 - `IsRoutineOutput` é definido pelo serviço que chama o rastreador. Ele muda só a criação de incidente, nunca a decisão da política.
-- Mensagens de exceção anexadas a eventos do Serilog não são reescritas pelo filtro de PII.
 - `POST /api/security/analyze` é uma ferramenta de inspeção: mostra detecções e o texto mascarado, mas não move o dado para nenhum destino e por isso não gera auditoria.

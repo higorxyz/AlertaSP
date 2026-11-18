@@ -199,10 +199,4 @@ public class CitizenServiceTests
         public Task<int> CountAsync(CancellationToken ct = default) => Task.FromResult(StoredCitizens.Count);
     }
 
-    private class FakeCryptoService : ICryptoService
-    {
-        public string Encrypt(string plainText) => $"ENC_{plainText}";
-        public string Decrypt(string cipherText) => cipherText.Replace("ENC_", "");
-        public string HashCpf(string normalizedCpf) => $"HASH_{normalizedCpf}";
-    }
 }

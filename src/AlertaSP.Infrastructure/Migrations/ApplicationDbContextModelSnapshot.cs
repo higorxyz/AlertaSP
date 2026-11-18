@@ -218,16 +218,17 @@ namespace AlertaSP.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Destination")
+                    b.Property<string>("EncryptedCoordinates")
                         .IsRequired()
-                        .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
-                    b.Property<double>("DestinationLatitude")
-                        .HasColumnType("REAL");
+                    b.Property<string>("EncryptedDestination")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
-                    b.Property<double>("DestinationLongitude")
-                        .HasColumnType("REAL");
+                    b.Property<string>("EncryptedOrigin")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<bool>("IsMonitoringActive")
                         .HasColumnType("INTEGER");
@@ -236,17 +237,6 @@ namespace AlertaSP.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
-
-                    b.Property<string>("Origin")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.Property<double>("OriginLatitude")
-                        .HasColumnType("REAL");
-
-                    b.Property<double>("OriginLongitude")
-                        .HasColumnType("REAL");
 
                     b.HasKey("Id");
 

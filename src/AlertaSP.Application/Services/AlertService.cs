@@ -15,13 +15,16 @@ public class AlertService : IAlertService
     private readonly IRouteRepository _routeRepository;
     private readonly INearbyOccurrenceFinder _finder;
     private readonly ITaintTracker _taintTracker;
+    private readonly RouteLocationProtector _protector;
 
     public AlertService(
         IAlertRepository alertRepository,
         IRouteRepository routeRepository,
         INearbyOccurrenceFinder finder,
-        ITaintTracker taintTracker)
+        ITaintTracker taintTracker,
+        RouteLocationProtector protector)
     {
+        _protector = protector;
         _alertRepository = alertRepository;
         _routeRepository = routeRepository;
         _finder = finder;
@@ -40,7 +43,7 @@ public class AlertService : IAlertService
             Actor = "AlertEngine",
             IsAuthorized = true
         };
-        var segments = await _taintTracker.ReleaseForInternalUseAsync(routes, context, ct);
+        var segments = await _taintTracker.ReleaseForInternalUseAsync(routes.Select(_protector.Unprotect).ToList(), context, ct);
 
         var generated = new List<AlertResponse>();
         var evaluated = 0;

@@ -3,20 +3,18 @@ using AlertaSP.Core.Exceptions;
 namespace AlertaSP.Core.Entities;
 
 /// <summary>
-/// Trajeto do cidadão (ex.: Casa → Trabalho). Para o cálculo de proximidade, o trajeto é aproximado
-/// por um segmento reto entre origem e destino.
+/// Trajeto do cidadão (ex.: Casa → Trabalho). Origem, destino e coordenadas revelam onde a pessoa mora e
+/// trabalha, por isso chegam aqui já cifrados (<see cref="EncryptedRouteLocation"/>), como CPF e endereço
+/// em <see cref="Citizen"/>. A entidade nunca vê esses valores em claro.
 /// </summary>
 public class Route
 {
     public int Id { get; private set; }
     public int CitizenId { get; private set; }
     public string Name { get; private set; } = string.Empty;
-    public string Origin { get; private set; } = string.Empty;
-    public string Destination { get; private set; } = string.Empty;
-    public double OriginLatitude { get; private set; }
-    public double OriginLongitude { get; private set; }
-    public double DestinationLatitude { get; private set; }
-    public double DestinationLongitude { get; private set; }
+    public string EncryptedOrigin { get; private set; } = string.Empty;
+    public string EncryptedDestination { get; private set; } = string.Empty;
+    public string EncryptedCoordinates { get; private set; } = string.Empty;
     public bool IsMonitoringActive { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
@@ -24,11 +22,7 @@ public class Route
 
     private Route() { }
 
-    public static Route Create(
-        int citizenId, string name,
-        string origin, string destination,
-        double originLat, double originLon,
-        double destLat, double destLon)
+    public static Route Create(int citizenId, string name, EncryptedRouteLocation location)
     {
         if (citizenId <= 0)
             throw new DomainException("O trajeto precisa pertencer a um cidadão.");
@@ -39,30 +33,43 @@ public class Route
             IsMonitoringActive = true,
             CreatedAt = DateTime.UtcNow
         };
-        route.Update(name, origin, destination, originLat, originLon, destLat, destLon);
+        route.Update(name, location);
         return route;
     }
 
-    public void Update(string name, string origin, string destination,
-        double originLat, double originLon, double destLat, double destLon)
+    public void Update(string name, EncryptedRouteLocation location)
     {
+        ArgumentNullException.ThrowIfNull(location);
+
         if (string.IsNullOrWhiteSpace(name))
             throw new DomainException("O nome do trajeto é obrigatório.");
-        if (string.IsNullOrWhiteSpace(origin) || string.IsNullOrWhiteSpace(destination))
-            throw new DomainException("Origem e destino do trajeto são obrigatórios.");
-
-        Coordinates.EnsureValid(originLat, originLon, "origem");
-        Coordinates.EnsureValid(destLat, destLon, "destino");
 
         Name = name.Trim();
-        Origin = origin.Trim();
-        Destination = destination.Trim();
-        OriginLatitude = originLat;
-        OriginLongitude = originLon;
-        DestinationLatitude = destLat;
-        DestinationLongitude = destLon;
+        EncryptedOrigin = location.Origin;
+        EncryptedDestination = location.Destination;
+        EncryptedCoordinates = location.Coordinates;
     }
+
+    public EncryptedRouteLocation Location => new(EncryptedOrigin, EncryptedDestination, EncryptedCoordinates);
 
     public void ActivateMonitoring() => IsMonitoringActive = true;
     public void DeactivateMonitoring() => IsMonitoringActive = false;
+}
+
+/// <summary>Origem, destino e coordenadas do trajeto, já cifrados para gravação.</summary>
+public sealed record EncryptedRouteLocation
+{
+    public string Origin { get; }
+    public string Destination { get; }
+    public string Coordinates { get; }
+
+    public EncryptedRouteLocation(string origin, string destination, string coordinates)
+    {
+        if (string.IsNullOrWhiteSpace(origin) || string.IsNullOrWhiteSpace(destination) || string.IsNullOrWhiteSpace(coordinates))
+            throw new DomainException("Origem, destino e coordenadas do trajeto são obrigatórios.");
+
+        Origin = origin;
+        Destination = destination;
+        Coordinates = coordinates;
+    }
 }

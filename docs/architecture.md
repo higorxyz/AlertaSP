@@ -22,7 +22,7 @@ Cada camada registra suas dependências numa extensão (`AddApplication`, `AddIn
 ## Domínio
 
 - `Citizen` recebe CPF, e-mail e endereço já cifrados e o hash do CPF; o nome é obrigatório.
-- `Route` exige nome, origem, destino e coordenadas válidas tanto na criação quanto na atualização, e começa monitorado.
+- `Route` recebe origem, destino e coordenadas já cifrados (`EncryptedRouteLocation`), exige nome e começa monitorado. A validação das coordenadas acontece antes, em `RouteLocation`, que só existe em memória.
 - `FloodOccurrence` nasce ativa; `Resolve()` e `Reactivate()` mudam o status.
 - `Alert.For(route, occurrence, distância)` só cria alerta para trajeto monitorado e ocorrência ativa, e monta a mensagem sem dados pessoais.
 
@@ -49,12 +49,14 @@ A busca (`NearbyOccurrenceFinder`) tem duas etapas:
 
 2. A distância ponto–segmento é calculada só para essas candidatas; as que passam do raio são descartadas.
 
+As coordenadas do trajeto ficam cifradas no banco. Para a busca, o serviço decifra a localização em memória e a entrega ao rastreador como uso interno autorizado; só então o segmento é usado no cálculo.
+
 O mesmo componente atende a consulta de risco do trajeto, a geração de alertas e a busca em volta de um ponto (segmento com início e fim iguais). O raio padrão é 500 m (`Risk:NearbyRadiusMeters`).
 
 ## Persistência
 
 - SQLite com EF Core 9; migração em `Infrastructure/Migrations`, aplicada na inicialização em `Development`.
-- Enums gravados como texto; coordenadas como `double`; datas em UTC. O SQLite não guarda fuso, então um conversor marca toda data lida do banco como UTC, e a API devolve as datas com `Z`.
+- Enums gravados como texto; coordenadas das ocorrências como `double` (usadas no filtro por caixa delimitadora); localização dos trajetos cifrada; datas em UTC. O SQLite não guarda fuso, então um conversor marca toda data lida do banco como UTC, e a API devolve as datas com `Z`.
 - Índices únicos: `CpfHash` e o par (`RouteId`, `OccurrenceId`) dos alertas.
 - Remover um cidadão remove em cascata seus trajetos e alertas.
 

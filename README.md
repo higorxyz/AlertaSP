@@ -14,7 +14,7 @@ Stack: .NET 9, ASP.NET Core, Entity Framework Core 9, SQLite, xUnit.
 | **Cidade e bairro** | São Paulo (SP), Zona Leste |
 | **Cidadão beneficiado** | Quem mora, trabalha ou estuda na Zona Leste e se desloca todos os dias (casa → trabalho, casa → faculdade) por trechos sujeitos a alagamento. |
 | **Problema, em uma frase** | Alagamentos pegam o cidadão de surpresa no trajeto diário, e hoje não há aviso ligado ao caminho que ele realmente faz. |
-| **Como funciona** | O cidadão cadastra seus trajetos. Ocorrências de alagamento são registradas, a API calcula a distância de cada uma ao trajeto e gera um alerta quando há ocorrência ativa a até 500 m. CPF e endereço ficam cifrados no banco e saem mascarados; um módulo de segurança detecta dados pessoais, acompanha por onde eles passam e bloqueia vazamentos. |
+| **Como funciona** | O cidadão cadastra seus trajetos. Ocorrências de alagamento são registradas, a API calcula a distância de cada uma ao trajeto e gera um alerta quando há ocorrência ativa a até 500 m. CPF, endereço e a localização dos trajetos ficam cifrados no banco e saem mascarados; um módulo de segurança detecta dados pessoais, acompanha por onde eles passam e bloqueia vazamentos. |
 | **O que cada parte faz** | **C# Software Development:** a Web API (cidadãos, trajetos, ocorrências, alertas), com EF Core + SQLite, LINQ, async e testes. **Cybersecurity:** motor de detecção de PII, Taint Analysis com auditoria, tradução de incidentes por IA com texto de reserva e o painel com o indicador Risco Cidadão. As demais disciplinas da equipe entregam suas partes nos próprios repositórios. |
 | **Link do repositório** | https://github.com/higorxyz/AlertaSP |
 | **Indicador de impacto** | Trajetos monitorados e alertas gerados antes do deslocamento; e o **Risco Cidadão** (0 a 100), que mede a exposição de dados pessoais no sistema e deve ficar baixo. Os números vêm do próprio sistema durante a demonstração. |
@@ -171,7 +171,7 @@ O modelo de ameaças está em [docs/threat-model.md](docs/threat-model.md).
 | **Web API** | Controllers finos em [Controllers/](src/AlertaSP.Api/Controllers/): DTOs, validação por atributos, paginação, `ProblemDetails` em todos os erros ([GlobalExceptionHandler.cs](src/AlertaSP.Api/Middleware/GlobalExceptionHandler.cs)), códigos 200/201/204/400/401/404/409, Swagger com descrição de cada endpoint. |
 | **EF Core + LINQ** | [ApplicationDbContext.cs](src/AlertaSP.Infrastructure/Data/ApplicationDbContext.cs), uma configuração por entidade em [Configurations/](src/AlertaSP.Infrastructure/Data/Configurations/), índices únicos (hash do CPF; par trajeto/ocorrência), migração em [Migrations/](src/AlertaSP.Infrastructure/Migrations/). Consultas traduzidas para SQL: caixa delimitadora em [FloodOccurrenceRepository.cs](src/AlertaSP.Infrastructure/Repositories/FloodOccurrenceRepository.cs), agrupamentos por categoria e por dia em [SecurityIncidentRepository.cs](src/AlertaSP.Infrastructure/Repositories/SecurityIncidentRepository.cs), contagem por decisão em [AuditEventRepository.cs](src/AlertaSP.Infrastructure/Repositories/AuditEventRepository.cs). |
 | **Async/Await** | E/S assíncrona de ponta a ponta (EF Core, HTTP do LLM), com `CancellationToken` repassado do controller ao repositório. Sem `.Result` nem `.Wait()`. |
-| **Testes** | 241 testes xUnit: unitários (entidades, serviços, geometria, busca de proximidade, migração, PII, Taint, IA, risco) e de integração com `WebApplicationFactory` e um banco SQLite por teste ([ApiIntegrationTests.cs](tests/AlertaSP.UnitTests/Integration/ApiIntegrationTests.cs)). |
+| **Testes** | 247 testes xUnit: unitários (entidades, serviços, geometria, busca de proximidade, migração, cifragem, logs, PII, Taint, IA, risco) e de integração com `WebApplicationFactory` e um banco SQLite por teste ([ApiIntegrationTests.cs](tests/AlertaSP.UnitTests/Integration/ApiIntegrationTests.cs)). |
 
 ### Cybersecurity
 
@@ -210,6 +210,7 @@ Dependências: Core não depende de nenhum projeto; Application e Security depen
 - **Sem login de usuário.** O protótipo não tem autenticação de cidadãos; só os endpoints de segurança exigem chave. As listagens públicas devolvem apenas dados mascarados.
 - **Nome do cidadão não é mascarado.** É o dado que a pessoa usa para reconhecer o próprio cadastro; CPF, e-mail e endereço são protegidos.
 - **Chaves de cifragem locais.** As chaves do Data Protection ficam no perfil do usuário do Windows. Em produção iriam para um cofre de chaves.
+- **Trajetos gravados antes da cifragem.** A migração `EncryptRouteLocation` remove os trajetos (e seus alertas) gravados em texto claro por versões anteriores, porque não há como cifrá-los por SQL.
 - **Detecção de saúde por texto** reduz falsos positivos exigindo combinação de termos, mas não garante encontrar todo dado médico.
 - **Dados meteorológicos** ficam como evolução futura.
 - **.NET 9** já saiu do período de suporte da Microsoft; o projeto mantém a versão definida no início do semestre.

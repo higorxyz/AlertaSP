@@ -21,17 +21,20 @@ public class RouteService : IRouteService
     private readonly ICitizenRepository _citizenRepository;
     private readonly INearbyOccurrenceFinder _finder;
     private readonly ITaintTracker _taintTracker;
+    private readonly RouteLocationProtector _protector;
 
     public RouteService(
         IRouteRepository routeRepository,
         ICitizenRepository citizenRepository,
         INearbyOccurrenceFinder finder,
-        ITaintTracker taintTracker)
+        ITaintTracker taintTracker,
+        RouteLocationProtector protector)
     {
         _routeRepository = routeRepository;
         _citizenRepository = citizenRepository;
         _finder = finder;
         _taintTracker = taintTracker;
+        _protector = protector;
     }
 
     public async Task<RouteResponse> CreateAsync(CreateRouteRequest request, CancellationToken ct = default)
@@ -41,13 +44,9 @@ public class RouteService : IRouteService
 
         // Endereços e coordenadas do trajeto são Location: revelam onde a pessoa mora e trabalha.
         var input = SensitiveFlow.Input(Source, "RouteRegistration", $"Citizen:{request.CitizenId}");
-        var stored = await ReleaseForStorageAsync(_taintTracker.TaintAnnotatedFields(request, input), input, ct);
+        var location = await ReleaseForStorageAsync(_taintTracker.TaintAnnotatedFields(request, input), input, ct);
 
-        var route = Route.Create(
-            request.CitizenId, request.Name,
-            stored.Origin, stored.Destination,
-            stored.OriginLatitude, stored.OriginLongitude,
-            stored.DestinationLatitude, stored.DestinationLongitude);
+        var route = Route.Create(request.CitizenId, request.Name, _protector.Protect(location));
 
         await _routeRepository.AddAsync(route, ct);
         return (await ToPublicResponsesAsync(new[] { route }, input, ct))[0];
@@ -83,13 +82,9 @@ public class RouteService : IRouteService
         var route = await FindAsync(id, ct);
 
         var input = SensitiveFlow.Input(Source, "RouteUpdate", $"Citizen:{route.CitizenId}");
-        var stored = await ReleaseForStorageAsync(_taintTracker.TaintAnnotatedFields(request, input), input, ct);
+        var location = await ReleaseForStorageAsync(_taintTracker.TaintAnnotatedFields(request, input), input, ct);
 
-        route.Update(
-            request.Name,
-            stored.Origin, stored.Destination,
-            stored.OriginLatitude, stored.OriginLongitude,
-            stored.DestinationLatitude, stored.DestinationLongitude);
+        route.Update(request.Name, _protector.Protect(location));
 
         await _routeRepository.UpdateAsync(route, ct);
         return (await ToPublicResponsesAsync(new[] { route }, input, ct))[0];
@@ -127,7 +122,7 @@ public class RouteService : IRouteService
             Actor = "RiskEngine",
             IsAuthorized = true
         };
-        var segment = (await _taintTracker.ReleaseForInternalUseAsync(new[] { route }, context, ct))[0];
+        var segment = (await _taintTracker.ReleaseForInternalUseAsync(new[] { _protector.Unprotect(route) }, context, ct))[0];
 
         var nearby = (await _finder.FindAsync(segment, radius, ct))
             .Select(NearbyOccurrenceResponse.From)
@@ -152,13 +147,11 @@ public class RouteService : IRouteService
     private async Task<Route> FindAsync(int id, CancellationToken ct) =>
         await _routeRepository.GetByIdAsync(id, ct) ?? throw new EntityNotFoundException("Trajeto", id);
 
-    private sealed record StoredRoute(
-        string Origin, string Destination,
-        double OriginLatitude, double OriginLongitude,
-        double DestinationLatitude, double DestinationLongitude);
-
-    /// <summary>Entrega os campos rotulados ao destino Database e devolve só o que a política liberou.</summary>
-    private async Task<StoredRoute> ReleaseForStorageAsync(
+    /// <summary>
+    /// Entrega os campos rotulados ao destino Database e devolve só o que a política liberou. Liberar para o
+    /// banco não basta: o chamador cifra a localização antes de gravar.
+    /// </summary>
+    private async Task<RouteLocation> ReleaseForStorageAsync(
         IReadOnlyDictionary<string, Tainted<string>> fields, DataFlowContext input, CancellationToken ct)
     {
         var names = new[]
@@ -171,7 +164,7 @@ public class RouteService : IRouteService
         var released = await _taintTracker.ReleaseManyAsync(
             names.Select(n => fields[n]).ToList(), SinkType.Database, SensitiveFlow.Persistence(input), ct);
 
-        return new StoredRoute(
+        return RouteLocation.Create(
             released[0], released[1],
             RouteCoordinates.Parse(released[2]), RouteCoordinates.Parse(released[3]),
             RouteCoordinates.Parse(released[4]), RouteCoordinates.Parse(released[5]));
@@ -179,7 +172,7 @@ public class RouteService : IRouteService
 
     /// <summary>
     /// Na resposta pública, endereços e coordenadas saem generalizados: endereço sem logradouro e
-    /// coordenadas com 2 casas decimais (cerca de 1 km). O valor exato fica só no banco.
+    /// coordenadas com 2 casas decimais (cerca de 1 km). O valor exato fica só no banco, cifrado.
     /// </summary>
     private async Task<List<RouteResponse>> ToPublicResponsesAsync(
         IReadOnlyList<Route> routes, DataFlowContext input, CancellationToken ct)
@@ -188,11 +181,12 @@ public class RouteService : IRouteService
             return new List<RouteResponse>();
 
         var tainted = routes
-            .SelectMany(r => new[]
+            .Select(_protector.Unprotect)
+            .SelectMany(l => new[]
             {
-                r.Origin, r.Destination,
-                RouteCoordinates.Format(r.OriginLatitude), RouteCoordinates.Format(r.OriginLongitude),
-                RouteCoordinates.Format(r.DestinationLatitude), RouteCoordinates.Format(r.DestinationLongitude)
+                l.Origin, l.Destination,
+                RouteCoordinates.Format(l.Segment.StartLatitude), RouteCoordinates.Format(l.Segment.StartLongitude),
+                RouteCoordinates.Format(l.Segment.EndLatitude), RouteCoordinates.Format(l.Segment.EndLongitude)
             })
             .Select(value => _taintTracker.Taint(value, input, DataCategory.Location, DataSensitivity.Medium))
             .ToList();
