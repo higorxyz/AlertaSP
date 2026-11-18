@@ -350,7 +350,63 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
         });
         Assert.Equal(HttpStatusCode.Created, routeResponse.StatusCode);
 
-        // O EF Core cria o banco em modo WAL: as gravações recentes ficam no arquivo "-wal" até o checkpoint.
+        var text = await ReadDatabaseFilesAsync();
+
+        foreach (var secret in new[] { "52998224725", "529.982.247-25", "higor@fiap.com.br", "Av. Paulista, 1106", "Rua Augusta, 1200", "Av. Paulista, 1578", "-23.5612", "-46.6602" })
+            Assert.DoesNotContain(secret, text);
+        Assert.Contains("Casa -> Trabalho", text); // o nome do trajeto não é sensível e confirma que o arquivo foi lido
+    }
+
+    // A atualização segue o mesmo caminho do cadastro: liberação pelo rastreador, cifragem e resposta generalizada.
+    [Fact]
+    public async Task Route_Update_StoresTheNewLocationEncryptedAndUsesItInternally()
+    {
+        var client = _factory.CreateClient();
+        var citizen = await RegisterCitizenAsync(client);
+        var route = await CreateRouteAsync(client, citizen.Id);
+
+        var update = await client.PutAsJsonAsync($"/api/routes/{route.Id}", new UpdateRouteRequest
+        {
+            Name = "Casa -> Faculdade",
+            Origin = "Rua Vergueiro, 3185",
+            Destination = "Av. Lins de Vasconcelos, 1222",
+            OriginLatitude = -23.5891,
+            OriginLongitude = -46.6342,
+            DestinationLatitude = -23.5743,
+            DestinationLongitude = -46.6235
+        });
+        var updated = (await update.Content.ReadFromJsonAsync<RouteResponse>(Json))!;
+
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        Assert.Equal("[ENDEREÇO PROTEGIDO]", updated.Origin);
+        Assert.Equal("[ENDEREÇO PROTEGIDO]", updated.Destination);
+        Assert.Equal(-23.59, updated.OriginLatitude);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var stored = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Routes.AsNoTracking().SingleAsync();
+            Assert.DoesNotContain("Vergueiro", stored.EncryptedOrigin);
+            Assert.DoesNotContain("Lins de Vasconcelos", stored.EncryptedDestination);
+            Assert.DoesNotContain("-23.5891", stored.EncryptedCoordinates);
+        }
+
+        var text = await ReadDatabaseFilesAsync();
+        foreach (var secret in new[] { "Rua Vergueiro, 3185", "Av. Lins de Vasconcelos, 1222", "-23.5891", "-46.6235" })
+            Assert.DoesNotContain(secret, text);
+        Assert.Contains("Casa -> Faculdade", text);
+
+        // A consulta de risco usa a localização nova: a ocorrência na nova origem fica a 0 m.
+        await CreateOccurrenceAsync(client, -23.5891, -46.6342);
+        var risk = (await client.GetFromJsonAsync<RouteRiskAnalysisResponse>($"/api/routes/{route.Id}/risk", Json))!;
+        Assert.Equal(0, Assert.Single(risk.NearbyOccurrences).DistanceMeters);
+    }
+
+    /// <summary>
+    /// Conteúdo bruto do banco de teste. O EF Core cria o SQLite em modo WAL: as gravações recentes ficam no
+    /// arquivo "-wal" até o checkpoint, por isso os dois arquivos são lidos.
+    /// </summary>
+    private async Task<string> ReadDatabaseFilesAsync()
+    {
         var text = new System.Text.StringBuilder();
         foreach (var path in new[] { _dbFileName, _dbFileName + "-wal" }.Where(File.Exists))
         {
@@ -359,10 +415,7 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
             await file.ReadExactlyAsync(raw);
             text.Append(System.Text.Encoding.UTF8.GetString(raw));
         }
-
-        foreach (var secret in new[] { "52998224725", "529.982.247-25", "higor@fiap.com.br", "Av. Paulista, 1106", "Rua Augusta, 1200", "Av. Paulista, 1578", "-23.5612", "-46.6602" })
-            Assert.DoesNotContain(secret, text.ToString());
-        Assert.Contains("Casa -> Trabalho", text.ToString()); // o nome do trajeto não é sensível e confirma que o arquivo foi lido
+        return text.ToString();
     }
 
     // ---------- Ocorrências: conteúdo livre passa pelo taint ----------
