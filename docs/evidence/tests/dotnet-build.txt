@@ -1,0 +1,15 @@
+  Determinando os projetos a serem restaurados...
+  Todos os projetos estão atualizados para restauração.
+  AlertaSP.Core -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\src\AlertaSP.Core\bin\Debug\net9.0\AlertaSP.Core.dll
+  AlertaSP.Application -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\src\AlertaSP.Application\bin\Debug\net9.0\AlertaSP.Application.dll
+  AlertaSP.Security -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\src\AlertaSP.Security\bin\Debug\net9.0\AlertaSP.Security.dll
+  AlertaSP.Infrastructure -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\src\AlertaSP.Infrastructure\bin\Debug\net9.0\AlertaSP.Infrastructure.dll
+  AlertaSP.SecurityTests -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\tests\AlertaSP.SecurityTests\bin\Debug\net9.0\AlertaSP.SecurityTests.dll
+  AlertaSP.Api -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\src\AlertaSP.Api\bin\Debug\net9.0\AlertaSP.Api.dll
+  AlertaSP.UnitTests -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\tests\AlertaSP.UnitTests\bin\Debug\net9.0\AlertaSP.UnitTests.dll
+
+Compilação com êxito.
+    0 Aviso(s)
+    0 Erro(s)
+
+Tempo Decorrido 00:00:03.88

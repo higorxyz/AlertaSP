@@ -1,0 +1,23 @@
+  Determinando os projetos a serem restaurados...
+  Todos os projetos estão atualizados para restauração.
+  AlertaSP.Core -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\src\AlertaSP.Core\bin\Debug\net9.0\AlertaSP.Core.dll
+  AlertaSP.Application -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\src\AlertaSP.Application\bin\Debug\net9.0\AlertaSP.Application.dll
+  AlertaSP.Security -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\src\AlertaSP.Security\bin\Debug\net9.0\AlertaSP.Security.dll
+  AlertaSP.Infrastructure -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\src\AlertaSP.Infrastructure\bin\Debug\net9.0\AlertaSP.Infrastructure.dll
+  AlertaSP.SecurityTests -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\tests\AlertaSP.SecurityTests\bin\Debug\net9.0\AlertaSP.SecurityTests.dll
+Execução de teste para C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\tests\AlertaSP.SecurityTests\bin\Debug\net9.0\AlertaSP.SecurityTests.dll (.NETCoreApp,Version=v9.0)
+Versão do VSTest 17.14.1 (x64)
+
+Iniciando execução de teste, espere...
+1 arquivos de teste no total corresponderam ao padrão especificado.
+  AlertaSP.Api -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\src\AlertaSP.Api\bin\Debug\net9.0\AlertaSP.Api.dll
+  AlertaSP.UnitTests -> C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\tests\AlertaSP.UnitTests\bin\Debug\net9.0\AlertaSP.UnitTests.dll
+Execução de teste para C:\Users\higorxyz\Documents\FIAP\Global Solutions\GS - AlertaSP\tests\AlertaSP.UnitTests\bin\Debug\net9.0\AlertaSP.UnitTests.dll (.NETCoreApp,Version=v9.0)
+Versão do VSTest 17.14.1 (x64)
+
+Iniciando execução de teste, espere...
+1 arquivos de teste no total corresponderam ao padrão especificado.
+
+Aprovado!  – Com falha:     0, Aprovado:   148, Ignorado:     0, Total:   148, Duração: 1 s - AlertaSP.SecurityTests.dll (net9.0)
+
+Aprovado!  – Com falha:     0, Aprovado:    93, Ignorado:     0, Total:    93, Duração: 14 s - AlertaSP.UnitTests.dll (net9.0)

@@ -1,0 +1,75 @@
+# Requisições de exemplo (extensão REST Client do VS Code ou Visual Studio).
+# Todos os dados são fictícios. A chave precisa ser a mesma definida em Security__ApiKey.
+@host = http://localhost:5193
+@apiKey = chave-local
+
+### Saúde da API
+GET {{host}}/health
+
+### Cadastrar cidadão (CPF fictício com dígitos válidos)
+POST {{host}}/api/citizens
+Content-Type: application/json
+
+{
+  "name": "Maria Teste",
+  "cpf": "529.982.247-25",
+  "email": "maria@exemplo.com",
+  "address": "Rua Augusta, 1500 - Consolação, São Paulo - SP"
+}
+
+### Cadastrar trajeto
+POST {{host}}/api/routes
+Content-Type: application/json
+
+{
+  "citizenId": 1,
+  "name": "Casa -> Trabalho",
+  "origin": "Liberdade",
+  "destination": "Consolação",
+  "originLatitude": -23.565,
+  "originLongitude": -46.640,
+  "destinationLatitude": -23.555,
+  "destinationLongitude": -46.660
+}
+
+### Registrar ocorrência sobre o trajeto
+POST {{host}}/api/flood-occurrences
+Content-Type: application/json
+
+{
+  "location": "Rua da Consolação, altura do metrô",
+  "latitude": -23.560,
+  "longitude": -46.650,
+  "description": "Via alagada, água acima do meio-fio.",
+  "severity": "Alto"
+}
+
+### Consultar risco do trajeto
+GET {{host}}/api/routes/1/risk
+
+### Gerar alertas
+POST {{host}}/api/alerts/generate
+
+### Alertas do cidadão
+GET {{host}}/api/alerts/citizen/1
+
+### Detecção de PII
+POST {{host}}/api/security/analyze
+X-Api-Key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "content": "Paciente diagnosticado com diabetes, CPF 384.920.184-88, mora na Rua das Flores, 120. senha=Abc12345"
+}
+
+### Cenários de demonstração do Taint Analysis (somente Development)
+POST {{host}}/api/security/demo/scenarios
+X-Api-Key: {{apiKey}}
+
+### Painel
+GET {{host}}/api/security/dashboard
+X-Api-Key: {{apiKey}}
+
+### Traduzir o incidente 1 para o cidadão
+POST {{host}}/api/security/incidents/1/remediation
+X-Api-Key: {{apiKey}}

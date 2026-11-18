@@ -1,0 +1,23 @@
+{
+  "threshold": 4,
+  "terms": [
+    { "name": "contexto_paciente",      "pattern": "\\bpaciente\\b",                                                   "weight": 2 },
+    { "name": "contexto_diagnostico",   "pattern": "diagn[oó]stic(?:o|ad[oa])(?:\\s+de)?",                              "weight": 3 },
+    { "name": "contexto_portador",      "pattern": "portador(?:a)?\\s+de",                                              "weight": 3 },
+    { "name": "contexto_tratamento",    "pattern": "(?:em\\s+)?tratamento\\s+(?:de|para|contra)",                       "weight": 3 },
+    { "name": "contexto_medicado",      "pattern": "medicad[oa]\\s+com|receita\\s+de|faz\\s+uso\\s+de",                 "weight": 3 },
+    { "name": "contexto_historico",     "pattern": "hist[oó]rico\\s+m[eé]dico",                                         "weight": 3 },
+    { "name": "contexto_internacao",    "pattern": "internad[oa]\\s+(?:por|com)|quadro\\s+de",                          "weight": 3 },
+    { "name": "cid",                    "pattern": "\\bcid\\s*[-:]?\\s*[A-TV-Z]\\d{2}(?:\\.\\d{1,2})?\\b",              "weight": 4 },
+    { "name": "cardiaco",               "pattern": "insufici[eê]ncia\\s+card[ií]aca|infarto|arritmia",                  "weight": 3 },
+    { "name": "metabolico",             "pattern": "diabetes|diab[eé]tic[oa]|hipertens[aã]o|colesterol\\s+alto",        "weight": 2 },
+    { "name": "respiratorio",           "pattern": "asma|bronquite|dpoc|pneumonia",                                    "weight": 2 },
+    { "name": "neurologico",            "pattern": "epilepsia|alzheimer|parkinson|avc\\b",                              "weight": 3 },
+    { "name": "mental_comum",           "pattern": "depress[aã]o|ansiedade|autismo|tdah",                              "weight": 3 },
+    { "name": "medicamentos",           "pattern": "metformina|insulina|losartana|fluoxetina|sertralina|clonazepam|rivotril|ritalina", "weight": 2 },
+    { "name": "critico_infeccioso",     "pattern": "soropositiv[oa]|hiv\\s+positivo|\\bhiv\\b|tuberculose",             "weight": 5, "critical": true },
+    { "name": "critico_oncologico",     "pattern": "c[aâ]ncer|leucemia|quimioterapia|tumor\\s+maligno",                 "weight": 5, "critical": true },
+    { "name": "critico_psiquiatrico",   "pattern": "esquizofrenia|transtorno\\s+bipolar|depress[aã]o\\s+grave",         "weight": 5, "critical": true },
+    { "name": "critico_documento",      "pattern": "laudo\\s+m[eé]dico|prontu[aá]rio\\s+m[eé]dico",                     "weight": 5, "critical": true }
+  ]
+}

@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AlertaSP — Painel de segurança</title>
+  <style>
+    /* Sem dependências externas: fontes do sistema, gráficos em CSS. O painel funciona offline. */
+    :root {
+      --tinta: #13222c;
+      --tinta-2: #1d3340;
+      --tinta-3: #3b4f5c;
+      --concreto: #e8eae6;
+      --papel: #f4f5f2;
+      --linha: #cdd2cc;
+      --texto: #16252f;
+      --texto-2: #52626c;
+      --agua: #2b6f8e;
+      --musgo: #4e7a5b;
+      --ambar: #f0a202;
+      --laranja: #d9692a;
+      --critico: #c23b22;
+      --display: Bahnschrift, "DIN Alternate", "Arial Narrow", "Segoe UI", system-ui, sans-serif;
+      --corpo: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: var(--concreto); }
+    body { font-family: var(--corpo); color: var(--texto); background: var(--concreto); line-height: 1.5; min-height: 100vh; }
+    button, input { font: inherit; }
+    :focus-visible { outline: 3px solid var(--ambar); outline-offset: 2px; }
+
+    .num { font-family: var(--display); font-variation-settings: "wght" 600, "wdth" 82; font-weight: 600; letter-spacing: 0; }
+
+    .shell { display: grid; grid-template-columns: 340px minmax(0, 1fr); min-height: 100vh; }
+
+    /* ---------- Coluna da régua ---------- */
+    .rail { background: var(--tinta); color: #e9eef0; padding: 28px 28px 24px; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
+    .brand { font-family: var(--display); font-variation-settings: "wght" 700, "wdth" 82; font-size: 1.5rem; }
+    .brand small { display: block; font-family: var(--corpo); font-variation-settings: normal; font-weight: 400; font-size: .85rem; color: #a9b8c0; margin-top: 2px; }
+
+    .reading { margin-top: 24px; display: flex; align-items: baseline; gap: 10px; }
+    .reading .score { font-size: 5.5rem; line-height: .9; }
+    .reading .of { color: #a9b8c0; font-size: .95rem; }
+    .classification { margin-top: 6px; font-size: 1.1rem; font-weight: 600; }
+
+    .gauge { position: relative; flex: 1; min-height: 240px; max-height: 420px; margin: 20px 0 16px; display: grid; grid-template-columns: 64px 1fr; column-gap: 16px; }
+    .tube { position: relative; border: 2px solid var(--tinta-3); border-radius: 32px; background: var(--tinta-2); overflow: hidden; }
+    .water { position: absolute; left: 0; right: 0; bottom: 0; height: 0%; background: var(--musgo); border-top: 3px solid rgba(255, 255, 255, .55); transition: height 1.4s cubic-bezier(.2, .8, .2, 1), background-color .6s; }
+    .notch { position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid rgba(255, 255, 255, .28); }
+    .bands { position: relative; }
+    .band { position: absolute; left: 0; transform: translateY(50%); font-size: .85rem; color: #b9c6cc; line-height: 1.15; }
+    .band b { display: block; font-weight: 600; color: #e9eef0; }
+    .band.is-current b { color: #fff; }
+    .band.is-current::before { content: ""; position: absolute; left: -14px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; background: var(--ambar); }
+
+    .formula { font-size: .85rem; color: #b9c6cc; }
+    .formula code { font-family: var(--corpo); color: #e9eef0; }
+    .citizen-msg { margin: 0 0 16px; padding: 12px 14px; border-left: 4px solid var(--msg-color, var(--tinta-3)); background: var(--tinta-2); border-radius: 0 6px 6px 0; }
+    .citizen-msg h2 { font-size: .75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #a9b8c0; margin-bottom: 6px; }
+    .citizen-msg p { font-size: .9rem; line-height: 1.45; color: #e9eef0; }
+    .citizen-msg small { display: block; margin-top: 6px; font-size: .75rem; color: #a9b8c0; }
+    .notice { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--tinta-3); font-size: .8rem; color: #a9b8c0; line-height: 1.45; }
+
+    /* ---------- Conteúdo ---------- */
+    main { padding: 28px clamp(20px, 4vw, 48px) 56px; }
+    .topbar { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-start; justify-content: space-between; }
+    .summary { font-family: var(--display); font-variation-settings: "wght" 600, "wdth" 85; font-size: clamp(1.6rem, 3vw, 2.3rem); line-height: 1.15; max-width: 22ch; }
+    .summary.is-empty { color: var(--texto-2); }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+    .field { display: flex; flex-direction: column; gap: 4px; font-size: .8rem; color: var(--texto-2); }
+    .field input { width: min(200px, 100%); padding: 9px 12px; border: 1px solid var(--tinta-3); border-radius: 6px; background: var(--papel); color: var(--texto); }
+    .btn { padding: 9px 16px; border-radius: 6px; border: 1px solid var(--tinta); background: transparent; color: var(--tinta); font-weight: 600; cursor: pointer; }
+    .btn:hover { background: rgba(19, 34, 44, .08); }
+    .btn.primary { background: var(--tinta); color: #fff; }
+    .btn.primary:hover { background: var(--tinta-2); }
+    .btn.small { padding: 8px 14px; font-size: .85rem; line-height: 1.2; }
+
+    .section { margin-top: 40px; }
+    .section h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+    .section .hint { color: var(--texto-2); font-size: .88rem; margin-bottom: 16px; max-width: 70ch; }
+
+    .stats { display: flex; flex-wrap: wrap; gap: 24px 48px; margin-top: 32px; }
+    .stat { display: flex; flex-direction: column-reverse; }
+    .stat dd { font-size: 3rem; line-height: 1; }
+    .stat dt { font-size: .9rem; color: var(--texto-2); margin-top: 4px; }
+    .stat.blocked dd { color: var(--critico); }
+    .stat.masked dd { color: var(--laranja); }
+    .stat.creds dd { color: var(--agua); }
+
+    .decisions-bar { display: flex; height: 18px; border-radius: 9px; overflow: hidden; background: var(--linha); }
+    .decisions-bar span { display: block; min-width: 0; transition: flex-grow .8s; }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 12px; font-size: .9rem; }
+    .legend b { font-family: var(--display); font-variation-settings: "wght" 600, "wdth" 85; font-size: 1.15rem; margin-right: 4px; }
+    .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+
+    .days { list-style: none; display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 6px; height: 132px; align-items: end; border-bottom: 1px solid var(--linha); }
+    .days li { height: 100%; display: flex; align-items: flex-end; }
+    .days .stack { width: 100%; display: flex; flex-direction: column-reverse; border-radius: 3px 3px 0 0; overflow: hidden; transition: height .8s; }
+    .days .stack span { display: block; min-height: 0; }
+    .days .stack .blocked { background: var(--critico); }
+    .days .stack .masked { background: var(--laranja); }
+    .days .stack.zero { height: 2px !important; background: var(--linha); }
+    .day-labels { list-style: none; display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 6px; margin-top: 6px; font-size: .75rem; color: var(--texto-2); text-align: center; font-variant-numeric: tabular-nums; }
+    .day-labels .today { color: var(--texto); font-weight: 700; }
+
+    .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 32px 48px; }
+    .bars { list-style: none; display: grid; gap: 12px; }
+    .bars li { display: grid; grid-template-columns: 120px 1fr minmax(32px, auto); align-items: center; gap: 12px; font-size: .9rem; }
+    .bars .track { height: 12px; background: var(--linha); border-radius: 6px; overflow: hidden; }
+    .bars .fill { display: block; height: 100%; background: var(--agua); border-radius: 6px; transition: width .8s; }
+    .bars .count { text-align: right; font-family: var(--display); font-variation-settings: "wght" 600, "wdth" 85; font-size: 1.1rem; }
+
+    .table-wrap { overflow-x: auto; border-top: 2px solid var(--tinta); }
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; text-align: left; min-width: 760px; }
+    th { font-weight: 600; color: var(--texto-2); padding: 10px 12px 10px 0; border-bottom: 1px solid var(--linha); white-space: nowrap; }
+    td { padding: 12px 12px 12px 0; border-bottom: 1px solid var(--linha); vertical-align: top; }
+    td.wide { min-width: 260px; max-width: 420px; }
+    td code { font-family: Consolas, "Cascadia Mono", monospace; font-size: .82rem; }
+    .tag { display: inline-flex; align-items: center; font-weight: 600; white-space: nowrap; }
+    .tag::before { content: ""; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; background: var(--c, var(--texto-2)); }
+    .tag.blocked { --c: var(--critico); }
+    .tag.masked { --c: var(--laranja); }
+    .tag.allowed { --c: var(--musgo); }
+    .tag.llm { --c: var(--agua); }
+    .tag.fallback { --c: var(--texto-2); }
+    .empty { color: var(--texto-2); padding: 20px 0; }
+
+    .toast { position: fixed; right: 20px; bottom: 20px; max-width: min(360px, calc(100vw - 40px)); padding: 12px 16px; border-radius: 6px; background: var(--tinta); color: #fff; font-size: .9rem; opacity: 0; transform: translateY(8px); transition: opacity .25s, transform .25s; pointer-events: none; }
+    .toast.show { opacity: 1; transform: none; }
+    .toast.error { background: var(--critico); }
+
+    @media (max-width: 900px) {
+      .shell { grid-template-columns: 1fr; }
+      .rail { position: static; height: auto; }
+      .gauge { height: 260px; flex: none; }
+      .summary { max-width: none; }
+    }
+    @media (max-width: 520px) {
+      main { padding: 24px 16px 48px; }
+      .rail { padding: 24px 16px 20px; }
+      .controls, .field { width: 100%; }
+      .field input { width: 100%; }
+      .controls .btn { flex: 1 1 auto; }
+      .stats { gap: 20px 32px; }
+      .stat dd { font-size: 2.4rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .water, .decisions-bar span, .bars .fill, .days .stack, .toast { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <div class="brand">AlertaSP<small>Painel de segurança</small></div>
+
+      <div class="reading">
+        <span class="score num" id="score">0</span>
+        <span class="of">de 100</span>
+      </div>
+      <div class="classification" id="classification">Sem leitura</div>
+
+      <div class="gauge" id="gauge" role="meter" aria-label="Risco Cidadão" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="tube">
+          <div class="water" id="water"></div>
+          <div class="notch" style="bottom:20%"></div>
+          <div class="notch" style="bottom:40%"></div>
+          <div class="notch" style="bottom:60%"></div>
+          <div class="notch" style="bottom:80%"></div>
+        </div>
+        <div class="bands" id="bands">
+          <div class="band" data-min="0" style="bottom:10%"><b>Muito baixo</b>0 a 20</div>
+          <div class="band" data-min="21" style="bottom:30%"><b>Baixo</b>21 a 40</div>
+          <div class="band" data-min="41" style="bottom:50%"><b>Moderado</b>41 a 60</div>
+          <div class="band" data-min="61" style="bottom:70%"><b>Alto</b>61 a 80</div>
+          <div class="band" data-min="81" style="bottom:90%"><b>Crítico</b>81 a 100</div>
+        </div>
+      </div>
+
+      <section class="citizen-msg" id="citizenMsg" aria-live="polite">
+        <h2>Mensagem para o cidadão</h2>
+        <p id="citizenMsgText">Nenhum incidente traduzido ainda.</p>
+        <small id="citizenMsgOrigin"></small>
+      </section>
+
+      <p class="formula" id="formula"><code>100 × (1 − e<sup>−exposição/K</sup>)</code></p>
+      <p class="notice">O indicador representa risco de exposição no ambiente monitorado, não uma previsão de que determinado cidadão sofrerá um incidente.</p>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <h1 class="summary is-empty" id="summary">Carregando leitura…</h1>
+        <div class="controls">
+          <label class="field">Chave de API
+            <input type="password" id="apiKey" autocomplete="off" placeholder="X-Api-Key">
+          </label>
+          <button class="btn primary" id="btnDemo" type="button">Executar cenários de demonstração</button>
+          <button class="btn" id="btnRefresh" type="button">Atualizar</button>
+        </div>
+      </div>
+
+      <dl class="stats" id="stats">
+        <div class="stat"><dt id="windowLabel">Incidentes nos últimos 7 dias</dt><dd class="num" id="totalIncidents">0</dd></div>
+        <div class="stat blocked"><dt>Vazamentos bloqueados</dt><dd class="num" id="blockedAttempts">0</dd></div>
+        <div class="stat masked"><dt>Dados mascarados</dt><dd class="num" id="sanitizedAttempts">0</dd></div>
+        <div class="stat creds"><dt>Credenciais detectadas</dt><dd class="num" id="credentialsCount">0</dd></div>
+      </dl>
+
+      <section class="section" aria-labelledby="h-decisions">
+        <h2 id="h-decisions">O que o sistema decidiu</h2>
+        <p class="hint">Cada vez que um dado tenta chegar a um destino, a política libera, mascara ou bloqueia. Contagem da trilha de auditoria na janela de análise.</p>
+        <div class="decisions-bar" id="decisionsBar" aria-hidden="true">
+          <span style="background:var(--musgo);flex-grow:0"></span>
+          <span style="background:var(--laranja);flex-grow:0"></span>
+          <span style="background:var(--critico);flex-grow:0"></span>
+        </div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--musgo)"></i><b id="allowedOperations">0</b><span id="allowedWord">liberadas</span></span>
+          <span><i class="dot" style="background:var(--laranja)"></i><b id="sanitizedOperations">0</b><span id="sanitizedWord">mascaradas</span></span>
+          <span><i class="dot" style="background:var(--critico)"></i><b id="blockedOperations">0</b><span id="blockedWord">bloqueadas</span></span>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="h-daily">
+        <h2 id="h-daily">Incidentes nos últimos 14 dias</h2>
+        <p class="hint">Um incidente por tentativa barrada, contado no dia em que aconteceu (horário de Brasília). Vermelho: bloqueados; laranja: mascarados.</p>
+        <ol class="days" id="dailyBars" aria-label="Incidentes por dia"></ol>
+        <ol class="day-labels" id="dailyLabels" aria-hidden="true"></ol>
+      </section>
+
+      <section class="section split">
+        <div>
+          <h2>Incidentes por tipo de dado</h2>
+          <ul class="bars" id="categoryBars"></ul>
+        </div>
+        <div>
+          <h2>Incidentes por severidade</h2>
+          <ul class="bars" id="severityBars"></ul>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="h-incidents">
+        <h2 id="h-incidents">Incidentes recentes</h2>
+        <p class="hint">A tradução para o cidadão explica o risco em linguagem simples. A origem mostra se veio do modelo de IA ou do texto de reserva.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Quando</th><th>Dado</th><th>Severidade</th><th>Destino</th><th>Resultado</th><th>Tradução para o cidadão</th><th>Origem</th>
+            </tr></thead>
+            <tbody id="incidentsTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="h-audit">
+        <h2 id="h-audit">Trilha de auditoria</h2>
+        <p class="hint">Registro de cada decisão do rastreador de dados. Nenhum valor sensível original é guardado aqui.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Hora</th><th>Origem</th><th>Destino</th><th>Dado</th><th>Decisão</th><th>Regra</th><th>Resumo</th>
+            </tr></thead>
+            <tbody id="auditTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const LABELS = {
+      category: { PersonalData: 'Dados pessoais', Location: 'Localização', HealthData: 'Saúde', Credentials: 'Credenciais', None: 'Nenhum' },
+      result: { Blocked: 'Bloqueado', Sanitized: 'Mascarado', AllowedWithViolation: 'Liberado com violação' },
+      sensitivity: { Critical: 'Crítica', High: 'Alta', Medium: 'Média', Low: 'Baixa', None: 'Nenhuma' },
+      decision: { Block: 'Bloqueado', AllowSanitized: 'Mascarado', Allow: 'Liberado' },
+      sink: { Log: 'Log', PublicHttpResponse: 'Resposta pública', InternalHttpResponse: 'Resposta interna', ExternalAiService: 'IA externa', Report: 'Relatório', Export: 'Exportação', Database: 'Banco de dados' }
+    };
+    const ORDER = {
+      sensitivity: ['Critical', 'High', 'Medium', 'Low', 'None'],
+      category: ['Credentials', 'HealthData', 'PersonalData', 'Location', 'None']
+    };
+    const LEVEL_COLORS = [[81, '#c23b22'], [61, '#d9692a'], [41, '#f0a202'], [21, '#7f9f45'], [0, '#4e7a5b']];
+
+    const $ = id => document.getElementById(id);
+    const label = (group, key) => LABELS[group][key] ?? key;
+
+    // Todo texto vindo da API (inclusive a tradução do LLM, que é conteúdo não confiável) é escapado.
+    function esc(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+    // Horários sempre no fuso de Brasília. A API grava em UTC; texto sem fuso (dado antigo) é lido como UTC.
+    const TZ = { timeZone: 'America/Sao_Paulo' };
+    const toDate = v => new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(String(v)) ? v : `${v}Z`);
+    const dateTimeBR = v => toDate(v).toLocaleString('pt-BR', TZ);
+    const timeBR = v => toDate(v).toLocaleTimeString('pt-BR', TZ);
+    const fmt = n => Number(n ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+
+    let toastTimer;
+    function toast(text, isError = false) {
+      const el = $('toast');
+      el.textContent = text;
+      el.classList.toggle('error', isError);
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 5000);
+    }
+
+    async function api(path, method = 'GET') {
+      const res = await fetch(path, { method, headers: { 'X-Api-Key': $('apiKey').value.trim() } });
+      if (res.status === 401) throw new Error('Chave de API inválida. Confira o campo no topo da página.');
+      if (res.status === 404 && path.includes('demo')) throw new Error('Os cenários de demonstração só rodam em ambiente de desenvolvimento.');
+      if (!res.ok) throw new Error(`A API respondeu com erro ${res.status}.`);
+      return res;
+    }
+
+    async function fetchDashboard() {
+      try {
+        const res = await api('/api/security/dashboard');
+        render(await res.json());
+      } catch (err) {
+        $('summary').textContent = 'Sem leitura. Informe a chave de API e clique em Atualizar.';
+        $('summary').classList.add('is-empty');
+        renderUnavailable();
+        toast(err.message, true);
+      }
+    }
+
+    // Sem leitura da API: as áreas de dados explicam o motivo em vez de ficarem em branco.
+    function renderUnavailable() {
+      const msg = 'Sem dados: informe a chave de API e clique em Atualizar.';
+      ['categoryBars', 'severityBars'].forEach(id => {
+        $(id).innerHTML = `<li class="empty" style="display:block">${msg}</li>`;
+      });
+      $('dailyBars').innerHTML = '';
+      $('dailyLabels').innerHTML = '';
+      ['incidentsTableBody', 'auditTableBody'].forEach(id => {
+        $(id).innerHTML = `<tr><td colspan="7" class="empty">${msg}</td></tr>`;
+      });
+    }
+
+    function render(data) {
+      const risk = data.citizenRisk;
+      renderGauge(risk);
+
+      $('totalIncidents').textContent = data.totalIncidents;
+      $('blockedAttempts').textContent = data.blockedAttempts;
+      $('sanitizedAttempts').textContent = data.sanitizedAttempts;
+      $('credentialsCount').textContent = data.credentialsDetectedCount;
+
+      const summary = $('summary');
+      if (data.totalIncidents === 0) {
+        summary.textContent = `Nenhum incidente nos últimos ${data.windowDays} dias.`;
+        summary.classList.add('is-empty');
+      } else {
+        const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+        summary.textContent = `${count(data.totalIncidents, 'incidente', 'incidentes')} em ${data.windowDays} dias: ` +
+          `${count(data.blockedAttempts, 'bloqueado', 'bloqueados')} e ${count(data.sanitizedAttempts, 'mascarado', 'mascarados')}.`;
+        summary.classList.remove('is-empty');
+      }
+
+      $('windowLabel').textContent = `Incidentes nos últimos ${data.windowDays} dias`;
+      renderDecisions(data);
+      renderDaily(data.dailyIncidents);
+      renderBars('categoryBars', data.incidentsByCategory, k => label('category', k), ORDER.category);
+      renderBars('severityBars', data.incidentsBySeverity, k => label('sensitivity', k), ORDER.sensitivity);
+      renderIncidents(data.recentIncidents);
+      renderCitizenMessage(data.recentIncidents, risk);
+      renderAudit(data.recentAuditEvents);
+    }
+
+    function renderGauge(risk) {
+      const score = Math.max(0, Math.min(100, Number(risk.score) || 0));
+      const color = LEVEL_COLORS.find(([min]) => score >= min)[1];
+
+      $('score').textContent = score;
+      $('classification').textContent = risk.classification;
+      $('gauge').setAttribute('aria-valuenow', score);
+      $('gauge').setAttribute('aria-valuetext', `${score} de 100, ${risk.classification}`);
+
+      // A água sobe até o valor do indicador.
+      requestAnimationFrame(() => {
+        $('water').style.height = score + '%';
+        $('water').style.backgroundColor = color;
+        $('water').style.borderTopWidth = score > 0 ? '3px' : '0';
+      });
+
+      document.querySelectorAll('#bands .band').forEach(band => {
+        const min = Number(band.dataset.min);
+        const next = band.nextElementSibling ? Number(band.nextElementSibling.dataset.min) : 101;
+        band.classList.toggle('is-current', score >= min && score < next);
+      });
+
+      $('formula').innerHTML = `<code>100 × (1 − e<sup>−${esc(fmt(risk.rawExposure))}/${esc(fmt(risk.kFactor))}</sup>) = ${score}</code><br>` +
+        `exposição ${esc(fmt(risk.rawExposure))}, K ${esc(fmt(risk.kFactor))}, ${esc(risk.incidentCount)} ${Number(risk.incidentCount) === 1 ? 'incidente avaliado' : 'incidentes avaliados'}`;
+    }
+
+    function renderDecisions(data) {
+      const parts = [data.allowedOperations, data.sanitizedOperations, data.blockedOperations].map(n => Number(n) || 0);
+      const spans = $('decisionsBar').children;
+      parts.forEach((n, i) => { spans[i].style.flexGrow = n; });
+      $('allowedOperations').textContent = parts[0];
+      $('sanitizedOperations').textContent = parts[1];
+      $('blockedOperations').textContent = parts[2];
+      $('allowedWord').textContent = parts[0] === 1 ? 'liberada' : 'liberadas';
+      $('sanitizedWord').textContent = parts[1] === 1 ? 'mascarada' : 'mascaradas';
+      $('blockedWord').textContent = parts[2] === 1 ? 'bloqueada' : 'bloqueadas';
+    }
+
+    // A API manda a data sem hora ("2026-11-17"); montar a partir das partes evita deslocar o dia pelo fuso.
+    function dayParts(iso) {
+      const [year, month, day] = String(iso).split('-').map(Number);
+      return { year, month, day };
+    }
+
+    function renderDaily(days) {
+      const list = days || [];
+      const max = Math.max(1, ...list.map(d => d.total));
+      const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+      $('dailyBars').innerHTML = list.map(d => {
+        const { month, day } = dayParts(d.day);
+        const text = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}: ${plural(d.total, 'incidente', 'incidentes')}` +
+          (d.total ? ` (${plural(d.blocked, 'bloqueado', 'bloqueados')}, ${plural(d.sanitized, 'mascarado', 'mascarados')})` : '');
+        const height = d.total ? (d.total / max) * 100 : 0;
+        return `<li aria-label="${esc(text)}" title="${esc(text)}"><span class="stack${d.total ? '' : ' zero'}" style="height:${height}%">` +
+          `<span class="blocked" style="flex-grow:${Number(d.blocked) || 0}"></span>` +
+          `<span class="masked" style="flex-grow:${Number(d.sanitized) || 0}"></span></span></li>`;
+      }).join('');
+
+      $('dailyLabels').innerHTML = list.map((d, i) =>
+        `<li class="${i === list.length - 1 ? 'today' : ''}">${dayParts(d.day).day}</li>`).join('');
+    }
+
+    function renderBars(id, counts, nameOf, order = []) {
+      const rank = key => { const i = order.indexOf(key); return i < 0 ? order.length : i; };
+      const entries = Object.entries(counts || {}).sort(([a], [b]) => rank(a) - rank(b));
+      const list = $(id);
+      if (entries.length === 0) {
+        list.innerHTML = '<li class="empty" style="display:block">Sem incidentes para mostrar.</li>';
+        return;
+      }
+      const max = Math.max(...entries.map(([, n]) => n), 1);
+      list.innerHTML = entries.map(([key, n]) =>
+        `<li><span>${esc(nameOf(key))}</span><span class="track"><span class="fill" style="width:${(n / max) * 100}%"></span></span><span class="count">${esc(n)}</span></li>`
+      ).join('');
+    }
+
+    function resultClass(result) {
+      if (result === 'Blocked') return 'blocked';
+      if (result === 'AllowedWithViolation') return 'allowed';
+      return 'masked';
+    }
+
+    // O incidente mais recente já traduzido aparece ao lado do indicador, na cor da faixa de risco atual.
+    function renderCitizenMessage(incidents, risk) {
+      const latest = (incidents || []).find(i => i.remediation);
+      const score = Math.max(0, Math.min(100, Number(risk.score) || 0));
+      $('citizenMsg').style.setProperty('--msg-color', LEVEL_COLORS.find(([min]) => score >= min)[1]);
+
+      if (!latest) {
+        $('citizenMsgText').textContent = (incidents || []).length
+          ? 'Clique em "Traduzir com IA" num incidente para ver a explicação aqui.'
+          : 'Nenhum incidente traduzido ainda.';
+        $('citizenMsgOrigin').textContent = '';
+        return;
+      }
+
+      $('citizenMsgText').textContent = latest.remediation;
+      const origin = latest.remediationOrigin === 'Llm' ? 'Gerada por modelo de IA' : 'Texto de reserva (sem IA)';
+      $('citizenMsgOrigin').textContent = `${origin} · ${label('category', latest.category)} · ${dateTimeBR(latest.timestamp)}`;
+    }
+
+    function renderIncidents(incidents) {
+      const tbody = $('incidentsTableBody');
+      if (!incidents || incidents.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">Nenhum incidente ainda. Execute os cenários de demonstração para ver a régua subir.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = incidents.map(i => {
+        const translation = i.remediation
+          ? esc(i.remediation)
+          : `<button class="btn small" type="button" data-remediate="${Number(i.id)}">Traduzir com IA</button>`;
+        const origin = i.remediationOrigin
+          ? `<span class="tag ${i.remediationOrigin === 'Llm' ? 'llm' : 'fallback'}">${i.remediationOrigin === 'Llm' ? 'Modelo de IA' : 'Texto de reserva'}</span>`
+          : '-';
+        return `<tr>
+          <td>${esc(dateTimeBR(i.timestamp))}</td>
+          <td><strong>${esc(label('category', i.category))}</strong></td>
+          <td>${esc(label('sensitivity', i.sensitivity))}</td>
+          <td>${esc(label('sink', i.sinkType))}</td>
+          <td><span class="tag ${resultClass(i.result)}">${esc(label('result', i.result))}</span></td>
+          <td class="wide">${translation}</td>
+          <td>${origin}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderAudit(events) {
+      const tbody = $('auditTableBody');
+      if (!events || events.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">A trilha está vazia.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = events.slice(0, 15).map(e => `<tr>
+        <td>${esc(timeBR(e.timestamp))}</td>
+        <td><code>${esc(e.source)}</code></td>
+        <td>${esc(label('sink', e.sinkType))}</td>
+        <td>${esc(label('category', e.category))}</td>
+        <td><span class="tag ${e.decision === 'Block' ? 'blocked' : e.decision === 'Allow' ? 'allowed' : 'masked'}">${esc(label('decision', e.decision))}</span></td>
+        <td><code>${esc(e.ruleApplied)}</code></td>
+        <td class="wide">${esc(e.summary)}</td>
+      </tr>`).join('');
+    }
+
+    async function requestRemediation(id) {
+      toast('Traduzindo o incidente…');
+      try {
+        await api(`/api/security/incidents/${encodeURIComponent(id)}/remediation`, 'POST');
+        toast('Tradução gerada.');
+        fetchDashboard();
+      } catch (err) {
+        toast(err.message, true);
+      }
+    }
+
+    async function executeDemoScenarios() {
+      toast('Executando os 4 cenários…');
+      try {
+        await api('/api/security/demo/scenarios', 'POST');
+        toast('Cenários executados.');
+        fetchDashboard();
+      } catch (err) {
+        toast(err.message, true);
+      }
+    }
+
+    $('btnDemo').addEventListener('click', executeDemoScenarios);
+    $('btnRefresh').addEventListener('click', fetchDashboard);
+    $('incidentsTableBody').addEventListener('click', ev => {
+      const btn = ev.target.closest('[data-remediate]');
+      if (btn) requestRemediation(btn.dataset.remediate);
+    });
+    window.addEventListener('DOMContentLoaded', fetchDashboard);
+  </script>
+</body>
+</html>

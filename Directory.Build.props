@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <!-- O projeto fixa o .NET 9 (global.json), cujo suporte da Microsoft já terminou; silencia o aviso NETSDK1138. -->
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <!-- Comentários XML alimentam o Swagger; não exigimos documentação em todo membro público. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+</Project>
